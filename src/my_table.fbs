@@ -1,0 +1,28 @@
+// example IDL file
+namespace MyExample;
+
+table Request {
+  request_id: uint32;
+}
+
+table Response {
+  response_id: uint32;
+}
+
+struct MyStruct {
+  my_id: uint32;
+}
+
+union Payload { Request, Response }
+
+table MyTable {
+  union_vector: [Payload];
+  union_single: Payload;
+  table_vector: [Request];
+  table_single: Request;
+  struct_vector: [MyStruct];
+  struct_single: MyStruct;
+}
+
+root_type MyTable;
+
