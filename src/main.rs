@@ -5,7 +5,10 @@ extern crate flatbuffers;
 #[path = "./my_table_generated.rs"]
 mod my_table;
 
-use crate::my_table::my_example::root_as_my_table;
+use flatbuffers::union_value_offsets;
+use flatbuffers::TagUnionValueOffset;
+
+use crate::my_table::my_example::{root_as_my_table, PayloadUnionTableOffset};
 pub use my_table::my_example::{
     MyTable, MyTableArgs, Payload, Request, RequestArgs, Response, ResponseArgs,
 };
@@ -37,25 +40,34 @@ fn write() {
             response_id: 2555u32,
         },
     );
-    let messages = fbb.create_vector(&[
-        request1.as_union_value(),
-        response1.as_union_value(),
-        request2.as_union_value(),
-        response2.as_union_value(),
-    ]);
-    let message_types = fbb.create_vector(&[
-        Payload::Request,
-        Payload::Response,
-        Payload::Request,
-        Payload::Response,
-    ]);
+    let messages = fbb.create_vector_of_unions(&union_value_offsets!(
+        PayloadUnionTableOffset,
+        request1,
+        response1,
+        request2,
+        response2
+    ));
+    // the above is equivalent of
+    // let messages = fbb.create_vector_of_unions(&[
+    //     PayloadUnionTableOffset::from_value_offset(request1),
+    //     PayloadUnionTableOffset::from_value_offset(response1),
+    //     PayloadUnionTableOffset::from_value_offset(request2),
+    //     PayloadUnionTableOffset::from_value_offset(response2),
+    // ]);
+
+    let request3 = PayloadUnionTableOffset::from_value_offset(Request::create(
+        &mut fbb,
+        &RequestArgs {
+            request_id: 3333u32,
+        },
+    ));
     let msg = MyTable::create(
         &mut fbb,
         &MyTableArgs {
-            union_vector_type: Some(message_types),
-            union_vector: Some(messages),
-            union_single_type: Payload::NONE,
-            union_single: None,
+            union_vector_type: Some(messages.0),
+            union_vector: Some(messages.1),
+            union_single_type: request3.0,
+            union_single: Some(request3.1),
             table_vector: None,
             table_single: None,
             struct_vector: None,
@@ -87,6 +99,8 @@ fn read() {
             _ => println!("Invalid"),
         }
     });
+    let req3 = Request::init_from_table(simple.union_single().unwrap());
+    println!("Request id: {}", req3.request_id())
 }
 
 fn main() {
