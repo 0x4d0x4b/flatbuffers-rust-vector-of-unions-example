@@ -129,6 +129,28 @@ pub mod my_example {
         }
     }
 
+    impl<'a> flatbuffers::UnionVerifiable<'a> for PayloadUnionTableOffset {
+        fn run_union_verifier(
+            v: &mut flatbuffers::Verifier,
+            tag: <<Self as flatbuffers::TaggedUnion>::Tag as flatbuffers::Follow<'a>>::Inner,
+            pos: usize,
+        ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+            match tag {
+                Payload::Request => v
+                    .verify_union_variant::<flatbuffers::ForwardsUOffset<Request>>(
+                        "Payload::Request",
+                        pos,
+                    ),
+                Payload::Response => v
+                    .verify_union_variant::<flatbuffers::ForwardsUOffset<Response>>(
+                        "Payload::Response",
+                        pos,
+                    ),
+                _ => Ok(()),
+            }
+        }
+    }
+
     #[non_exhaustive]
     #[derive(Debug, Clone, PartialEq)]
     pub enum PayloadT {
@@ -772,25 +794,12 @@ pub mod my_example {
         ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
-                .visit_union::<Payload, _>(
+                .visit_union::<PayloadUnionTableOffset>(
                     &"union_single_type",
                     Self::VT_UNION_SINGLE_TYPE,
                     &"union_single",
                     Self::VT_UNION_SINGLE,
                     false,
-                    |key, v, pos| match key {
-                        Payload::Request => v
-                            .verify_union_variant::<flatbuffers::ForwardsUOffset<Request>>(
-                                "Payload::Request",
-                                pos,
-                            ),
-                        Payload::Response => v
-                            .verify_union_variant::<flatbuffers::ForwardsUOffset<Response>>(
-                                "Payload::Response",
-                                pos,
-                            ),
-                        _ => Ok(()),
-                    },
                 )?
                 .visit_field::<flatbuffers::ForwardsUOffset<
                     flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Request>>,
