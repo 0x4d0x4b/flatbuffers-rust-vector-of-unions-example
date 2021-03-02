@@ -794,6 +794,13 @@ pub mod my_example {
         ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
+                .visit_union_vector::<PayloadUnionTableOffset>(
+                    &"union_vector_type",
+                    Self::VT_UNION_VECTOR_TYPE,
+                    &"union_vector",
+                    Self::VT_UNION_VECTOR,
+                    false,
+                )?
                 .visit_union::<PayloadUnionTableOffset>(
                     &"union_single_type",
                     Self::VT_UNION_SINGLE_TYPE,
