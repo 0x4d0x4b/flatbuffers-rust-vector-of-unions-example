@@ -64,10 +64,10 @@ fn write() {
     let msg = MyTable::create(
         &mut fbb,
         &MyTableArgs {
-            union_vector_type: Some(messages.0),
-            union_vector: Some(messages.1),
-            union_single_type: request3.0,
-            union_single: Some(request3.1),
+            union_vector_type: Some(messages.tags),
+            union_vector: Some(messages.values),
+            union_single_type: request3.tag,
+            union_single: Some(request3.value),
             table_vector: None,
             table_single: None,
             struct_vector: None,

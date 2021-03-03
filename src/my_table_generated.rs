@@ -117,7 +117,10 @@ pub mod my_example {
         fn from_value_offset(
             o: flatbuffers::WIPOffset<Request<'a>>,
         ) -> flatbuffers::TaggedWIPOffset<Self> {
-            flatbuffers::TaggedWIPOffset(Payload::Request, flatbuffers::WIPOffset::new(o.value()))
+            flatbuffers::TaggedWIPOffset {
+                tag: Payload::Request,
+                value: flatbuffers::WIPOffset::new(o.value()),
+            }
         }
     }
 
@@ -125,7 +128,10 @@ pub mod my_example {
         fn from_value_offset(
             o: flatbuffers::WIPOffset<Response<'a>>,
         ) -> flatbuffers::TaggedWIPOffset<Self> {
-            flatbuffers::TaggedWIPOffset(Payload::Response, flatbuffers::WIPOffset::new(o.value()))
+            flatbuffers::TaggedWIPOffset {
+                tag: Payload::Response,
+                value: flatbuffers::WIPOffset::new(o.value()),
+            }
         }
     }
 
@@ -177,9 +183,11 @@ pub mod my_example {
         ) -> Option<flatbuffers::WIPOffset<PayloadUnionTableOffset>> {
             match self {
                 Self::NONE => None,
-                Self::Request(v) => Some(PayloadUnionTableOffset::from_value_offset(v.pack(fbb)).1),
+                Self::Request(v) => {
+                    Some(PayloadUnionTableOffset::from_value_offset(v.pack(fbb)).value)
+                }
                 Self::Response(v) => {
-                    Some(PayloadUnionTableOffset::from_value_offset(v.pack(fbb)).1)
+                    Some(PayloadUnionTableOffset::from_value_offset(v.pack(fbb)).value)
                 }
             }
         }
