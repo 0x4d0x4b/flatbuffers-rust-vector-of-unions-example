@@ -5,10 +5,7 @@ extern crate flatbuffers;
 #[path = "./my_table_generated.rs"]
 mod my_table;
 
-use flatbuffers::union_value_offsets;
-use flatbuffers::TagUnionValueOffset;
-
-use crate::my_table::my_example::{root_as_my_table, PayloadUnionTableOffset};
+use crate::my_table::my_example::root_as_my_table;
 pub use my_table::my_example::{
     MyTable, MyTableArgs, Payload, Request, RequestArgs, Response, ResponseArgs,
 };
@@ -40,34 +37,33 @@ fn write() {
             response_id: 2555u32,
         },
     );
-    let messages = fbb.create_vector_of_unions(&union_value_offsets!(
-        PayloadUnionTableOffset,
-        request1,
-        response1,
-        request2,
-        response2
-    ));
-    // the above is equivalent of
-    // let messages = fbb.create_vector_of_unions(&[
-    //     PayloadUnionTableOffset::from_value_offset(request1),
-    //     PayloadUnionTableOffset::from_value_offset(response1),
-    //     PayloadUnionTableOffset::from_value_offset(request2),
-    //     PayloadUnionTableOffset::from_value_offset(response2),
-    // ]);
-
-    let request3 = PayloadUnionTableOffset::from_value_offset(Request::create(
+    let request3 = Request::create(
         &mut fbb,
         &RequestArgs {
             request_id: 3333u32,
+        },
+    );
+    let messages = fbb.create_vector_of_unions(&[
+        Payload::tag_as_request(request1),
+        Payload::tag_as_response(response1),
+        Payload::tag_as_request(request2),
+        Payload::tag_as_response(response2),
+        Payload::tag_as_aliased(request3),
+    ]);
+
+    let request4 = Payload::tag_as_request(Request::create(
+        &mut fbb,
+        &RequestArgs {
+            request_id: 4333u32,
         },
     ));
     let msg = MyTable::create(
         &mut fbb,
         &MyTableArgs {
-            union_vector_type: Some(messages.tags),
-            union_vector: Some(messages.values),
-            union_single_type: request3.tag,
-            union_single: Some(request3.value),
+            union_vector_type: Some(messages.tags()),
+            union_vector: Some(messages.values_offset()),
+            union_single_type: request4.tag(),
+            union_single: Some(request4.value_offset()),
             table_vector: None,
             table_single: None,
             struct_vector: None,
@@ -95,6 +91,10 @@ fn read() {
             Payload::Response => {
                 let resp = Response::init_from_table(table);
                 println!("Response id: {}", resp.response_id())
+            }
+            Payload::Aliased => {
+                let req = Request::init_from_table(table);
+                println!("Aliased: Request id: {}", req.request_id())
             }
             _ => println!("Invalid"),
         }

@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::mem;
 
 extern crate flatbuffers;
-use self::flatbuffers::{EndianScalar, TagUnionValueOffset};
+use self::flatbuffers::{EndianScalar, TaggedUnion};
 
 #[allow(unused_imports, dead_code)]
 pub mod my_example {
@@ -13,7 +13,7 @@ pub mod my_example {
     use std::mem;
 
     extern crate flatbuffers;
-    use self::flatbuffers::{EndianScalar, TagUnionValueOffset};
+    use self::flatbuffers::{EndianScalar, TaggedUnion};
 
     #[deprecated(
         since = "2.0.0",
@@ -24,14 +24,18 @@ pub mod my_example {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
     )]
-    pub const ENUM_MAX_PAYLOAD: u8 = 2;
+    pub const ENUM_MAX_PAYLOAD: u8 = 3;
     #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
     )]
     #[allow(non_camel_case_types)]
-    pub const ENUM_VALUES_PAYLOAD: [Payload; 3] =
-        [Payload::NONE, Payload::Request, Payload::Response];
+    pub const ENUM_VALUES_PAYLOAD: [Payload; 4] = [
+        Payload::NONE,
+        Payload::Request,
+        Payload::Response,
+        Payload::Aliased,
+    ];
 
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
     #[repr(transparent)]
@@ -41,18 +45,42 @@ pub mod my_example {
         pub const NONE: Self = Self(0);
         pub const Request: Self = Self(1);
         pub const Response: Self = Self(2);
+        pub const Aliased: Self = Self(3);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 2;
-        pub const ENUM_VALUES: &'static [Self] = &[Self::NONE, Self::Request, Self::Response];
+        pub const ENUM_MAX: u8 = 3;
+        pub const ENUM_VALUES: &'static [Self] =
+            &[Self::NONE, Self::Request, Self::Response, Self::Aliased];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
             match self {
                 Self::NONE => Some("NONE"),
                 Self::Request => Some("Request"),
                 Self::Response => Some("Response"),
+                Self::Aliased => Some("Aliased"),
                 _ => None,
             }
+        }
+
+        #[inline]
+        pub fn tag_as_request(
+            o: flatbuffers::WIPOffset<Request>,
+        ) -> flatbuffers::UnionWIPOffset<PayloadUnionValue> {
+            flatbuffers::UnionWIPOffset::new(Self::Request, flatbuffers::WIPOffset::new(o.value()))
+        }
+
+        #[inline]
+        pub fn tag_as_response(
+            o: flatbuffers::WIPOffset<Response>,
+        ) -> flatbuffers::UnionWIPOffset<PayloadUnionValue> {
+            flatbuffers::UnionWIPOffset::new(Self::Response, flatbuffers::WIPOffset::new(o.value()))
+        }
+
+        #[inline]
+        pub fn tag_as_aliased(
+            o: flatbuffers::WIPOffset<Request>,
+        ) -> flatbuffers::UnionWIPOffset<PayloadUnionValue> {
+            flatbuffers::UnionWIPOffset::new(Self::Aliased, flatbuffers::WIPOffset::new(o.value()))
         }
     }
     impl std::fmt::Debug for Payload {
@@ -107,35 +135,13 @@ pub mod my_example {
 
     impl flatbuffers::SimpleToVerifyInSlice for Payload {}
 
-    pub struct PayloadUnionTableOffset {}
+    pub struct PayloadUnionValue {}
 
-    impl flatbuffers::TaggedUnion for PayloadUnionTableOffset {
+    impl flatbuffers::TaggedUnion for PayloadUnionValue {
         type Tag = Payload;
     }
 
-    impl<'a> flatbuffers::TagUnionValueOffset<Request<'a>> for PayloadUnionTableOffset {
-        fn from_value_offset(
-            o: flatbuffers::WIPOffset<Request<'a>>,
-        ) -> flatbuffers::TaggedWIPOffset<Self> {
-            flatbuffers::TaggedWIPOffset {
-                tag: Payload::Request,
-                value: flatbuffers::WIPOffset::new(o.value()),
-            }
-        }
-    }
-
-    impl<'a> flatbuffers::TagUnionValueOffset<Response<'a>> for PayloadUnionTableOffset {
-        fn from_value_offset(
-            o: flatbuffers::WIPOffset<Response<'a>>,
-        ) -> flatbuffers::TaggedWIPOffset<Self> {
-            flatbuffers::TaggedWIPOffset {
-                tag: Payload::Response,
-                value: flatbuffers::WIPOffset::new(o.value()),
-            }
-        }
-    }
-
-    impl<'a> flatbuffers::UnionVerifiable<'a> for PayloadUnionTableOffset {
+    impl<'a> flatbuffers::UnionVerifiable<'a> for PayloadUnionValue {
         fn run_union_verifier(
             v: &mut flatbuffers::Verifier,
             tag: <<Self as flatbuffers::TaggedUnion>::Tag as flatbuffers::Follow<'a>>::Inner,
@@ -152,6 +158,11 @@ pub mod my_example {
                         "Payload::Response",
                         pos,
                     ),
+                Payload::Aliased => v
+                    .verify_union_variant::<flatbuffers::ForwardsUOffset<Request>>(
+                        "Payload::Aliased",
+                        pos,
+                    ),
                 _ => Ok(()),
             }
         }
@@ -163,6 +174,7 @@ pub mod my_example {
         NONE,
         Request(Box<RequestT>),
         Response(Box<ResponseT>),
+        Aliased(Box<RequestT>),
     }
     impl Default for PayloadT {
         fn default() -> Self {
@@ -175,20 +187,18 @@ pub mod my_example {
                 Self::NONE => Payload::NONE,
                 Self::Request(_) => Payload::Request,
                 Self::Response(_) => Payload::Response,
+                Self::Aliased(_) => Payload::Aliased,
             }
         }
         pub fn pack(
             &self,
             fbb: &mut flatbuffers::FlatBufferBuilder,
-        ) -> Option<flatbuffers::WIPOffset<PayloadUnionTableOffset>> {
+        ) -> Option<flatbuffers::WIPOffset<PayloadUnionValue>> {
             match self {
                 Self::NONE => None,
-                Self::Request(v) => {
-                    Some(PayloadUnionTableOffset::from_value_offset(v.pack(fbb)).value)
-                }
-                Self::Response(v) => {
-                    Some(PayloadUnionTableOffset::from_value_offset(v.pack(fbb)).value)
-                }
+                Self::Request(v) => Some(Payload::tag_as_request(v.pack(fbb)).value_offset()),
+                Self::Response(v) => Some(Payload::tag_as_response(v.pack(fbb)).value_offset()),
+                Self::Aliased(v) => Some(Payload::tag_as_aliased(v.pack(fbb)).value_offset()),
             }
         }
         /// If the union variant matches, return the owned RequestT, setting the union to NONE.
@@ -244,6 +254,35 @@ pub mod my_example {
         /// If the union variant matches, return a mutable reference to the ResponseT.
         pub fn as_response_mut(&mut self) -> Option<&mut ResponseT> {
             if let Self::Response(v) = self {
+                Some(v.as_mut())
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return the owned RequestT, setting the union to NONE.
+        pub fn take_aliased(&mut self) -> Option<Box<RequestT>> {
+            if let Self::Aliased(_) = self {
+                let v = std::mem::replace(self, Self::NONE);
+                if let Self::Aliased(w) = v {
+                    Some(w)
+                } else {
+                    unreachable!()
+                }
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return a reference to the RequestT.
+        pub fn as_aliased(&self) -> Option<&RequestT> {
+            if let Self::Aliased(v) = self {
+                Some(v.as_ref())
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return a mutable reference to the RequestT.
+        pub fn as_aliased_mut(&mut self) -> Option<&mut RequestT> {
+            if let Self::Aliased(v) = self {
                 Some(v.as_mut())
             } else {
                 None
@@ -670,6 +709,9 @@ pub mod my_example {
                                 &Payload::Response => PayloadT::Response(Box::new(
                                     Response::init_from_table(table).unpack(),
                                 )),
+                                &Payload::Aliased => PayloadT::Aliased(Box::new(
+                                    Request::init_from_table(table).unpack(),
+                                )),
                                 _ => PayloadT::NONE,
                             }
                         })
@@ -686,6 +728,11 @@ pub mod my_example {
                 Payload::Response => PayloadT::Response(Box::new(
                     self.union_single_as_response()
                         .expect("Invalid union table, expected `Payload::Response`.")
+                        .unpack(),
+                )),
+                Payload::Aliased => PayloadT::Aliased(Box::new(
+                    self.union_single_as_aliased()
+                        .expect("Invalid union table, expected `Payload::Aliased`.")
                         .unpack(),
                 )),
                 _ => PayloadT::NONE,
@@ -792,6 +839,16 @@ pub mod my_example {
                 None
             }
         }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn union_single_as_aliased(&self) -> Option<Request<'a>> {
+            if self.union_single_type() == Payload::Aliased {
+                self.union_single().map(Request::init_from_table)
+            } else {
+                None
+            }
+        }
     }
 
     impl flatbuffers::Verifiable for MyTable<'_> {
@@ -802,14 +859,14 @@ pub mod my_example {
         ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
             use self::flatbuffers::Verifiable;
             v.visit_table(pos)?
-                .visit_union_vector::<PayloadUnionTableOffset>(
+                .visit_union_vector::<PayloadUnionValue>(
                     &"union_vector_type",
                     Self::VT_UNION_VECTOR_TYPE,
                     &"union_vector",
                     Self::VT_UNION_VECTOR,
                     false,
                 )?
-                .visit_union::<PayloadUnionTableOffset>(
+                .visit_union::<PayloadUnionValue>(
                     &"union_single_type",
                     Self::VT_UNION_SINGLE_TYPE,
                     &"union_single",
@@ -838,11 +895,11 @@ pub mod my_example {
         pub union_vector_type: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, Payload>>>,
         pub union_vector: Option<
             flatbuffers::WIPOffset<
-                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PayloadUnionTableOffset>>,
+                flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<PayloadUnionValue>>,
             >,
         >,
         pub union_single_type: Payload,
-        pub union_single: Option<flatbuffers::WIPOffset<PayloadUnionTableOffset>>,
+        pub union_single: Option<flatbuffers::WIPOffset<PayloadUnionValue>>,
         pub table_vector: Option<
             flatbuffers::WIPOffset<
                 flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Request<'a>>>,
@@ -886,7 +943,7 @@ pub mod my_example {
         pub fn add_union_vector(
             &mut self,
             union_vector: flatbuffers::WIPOffset<
-                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<PayloadUnionTableOffset>>,
+                flatbuffers::Vector<'b, flatbuffers::ForwardsUOffset<PayloadUnionValue>>,
             >,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
@@ -905,7 +962,7 @@ pub mod my_example {
         #[inline]
         pub fn add_union_single(
             &mut self,
-            union_single: flatbuffers::WIPOffset<PayloadUnionTableOffset>,
+            union_single: flatbuffers::WIPOffset<PayloadUnionValue>,
         ) {
             self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(
                 MyTable::VT_UNION_SINGLE,
@@ -981,6 +1038,16 @@ pub mod my_example {
                 }
                 Payload::Response => {
                     if let Some(x) = self.union_single_as_response() {
+                        ds.field("union_single", &x)
+                    } else {
+                        ds.field(
+                            "union_single",
+                            &"InvalidFlatbuffer: Union discriminant does not match value.",
+                        )
+                    }
+                }
+                Payload::Aliased => {
+                    if let Some(x) = self.union_single_as_aliased() {
                         ds.field("union_single", &x)
                     } else {
                         ds.field(
