@@ -9,7 +9,7 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 [[package]]
 name = "flatbuffers"
 version = "0.8.3"
-source = "git+https://github.com/kajdam/flatbuffers?branch=rust-vector-of-unions#30b3bfd680b460db0a3509bcf80243d4a2e0ddda"
+source = "git+https://github.com/kajdam/flatbuffers?branch=rust-vector-of-unions#461f2d12ef88e91f26c5e6ec4ede5b1bf265a741"
 dependencies = [
  "bitflags",
  "smallvec",

@@ -6,6 +6,7 @@ extern crate flatbuffers;
 mod my_table;
 
 use crate::my_table::my_example::root_as_my_table;
+use flatbuffers::BuildVector;
 pub use my_table::my_example::{
     MyTable, MyTableArgs, Payload, Request, RequestArgs, Response, ResponseArgs,
 };
@@ -43,13 +44,25 @@ fn write() {
             request_id: 3333u32,
         },
     );
-    let messages = fbb.create_vector_of_unions(&[
-        Payload::tag_as_request(request1),
-        Payload::tag_as_response(response1),
-        Payload::tag_as_request(request2),
-        Payload::tag_as_response(response2),
-        Payload::tag_as_aliased(request3),
-    ]);
+
+    let messages = {
+        let mut payload_builder = <Payload as BuildVector>::VectorBuilder::new(&mut fbb, 5);
+        payload_builder.push_as_aliased(request3);
+        payload_builder.push_as_response(response2);
+        payload_builder.push_as_request(request2);
+        payload_builder.push_as_response(response1);
+        payload_builder.push_as_request(request1);
+        payload_builder.finish()
+    };
+    // OR create a vector in one go
+    // note reversed order above
+    // let messages = fbb.create_vector_of_unions(&[
+    //     Payload::tag_as_request(request1),
+    //     Payload::tag_as_response(response1),
+    //     Payload::tag_as_request(request2),
+    //     Payload::tag_as_response(response2),
+    //     Payload::tag_as_aliased(request3),
+    // ]);
 
     let request4 = Payload::tag_as_request(Request::create(
         &mut fbb,

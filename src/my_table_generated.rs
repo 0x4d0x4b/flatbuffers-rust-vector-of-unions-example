@@ -135,6 +135,50 @@ pub mod my_example {
 
     impl flatbuffers::SimpleToVerifyInSlice for Payload {}
 
+    impl From<Payload> for u8 {
+        #[inline]
+        fn from(v: Payload) -> u8 {
+            v.0
+        }
+    }
+
+    impl<'a: 'b, 'b> flatbuffers::BuildVector<'a, 'b> for Payload {
+        type VectorBuilder = PayloadVectorBuilder<'a, 'b>;
+    }
+
+    pub struct PayloadVectorBuilder<'a: 'b, 'b> {
+        fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+        num_items: usize,
+    }
+
+    impl<'a: 'b, 'b> PayloadVectorBuilder<'a, 'b> {
+        #[inline]
+        pub fn new(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, num_items: usize) -> Self {
+            fbb.start_union_vector::<PayloadUnionValue>(num_items);
+            Self { fbb, num_items }
+        }
+
+        #[inline]
+        pub fn finish(&mut self) -> flatbuffers::UnionVectorWIPOffsets<'a, PayloadUnionValue> {
+            self.fbb.end_union_vector(self.num_items)
+        }
+
+        #[inline]
+        pub fn push_as_request(&mut self, o: flatbuffers::WIPOffset<Request>) {
+            self.fbb.push_union_vector_item(Payload::tag_as_request(o));
+        }
+
+        #[inline]
+        pub fn push_as_response(&mut self, o: flatbuffers::WIPOffset<Response>) {
+            self.fbb.push_union_vector_item(Payload::tag_as_response(o));
+        }
+
+        #[inline]
+        pub fn push_as_aliased(&mut self, o: flatbuffers::WIPOffset<Request>) {
+            self.fbb.push_union_vector_item(Payload::tag_as_aliased(o));
+        }
+    }
+
     pub struct PayloadUnionValue {}
 
     impl flatbuffers::TaggedUnion for PayloadUnionValue {
