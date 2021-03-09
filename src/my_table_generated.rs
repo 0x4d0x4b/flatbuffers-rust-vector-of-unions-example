@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 use std::mem;
 
 extern crate flatbuffers;
-use self::flatbuffers::{EndianScalar, TaggedUnion};
+use self::flatbuffers::{EndianScalar, Follow, TaggedUnion};
 
 #[allow(unused_imports, dead_code)]
 pub mod my_example {
@@ -13,7 +13,7 @@ pub mod my_example {
     use std::mem;
 
     extern crate flatbuffers;
-    use self::flatbuffers::{EndianScalar, TaggedUnion};
+    use self::flatbuffers::{EndianScalar, Follow, TaggedUnion};
 
     #[deprecated(
         since = "2.0.0",
@@ -24,17 +24,18 @@ pub mod my_example {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
     )]
-    pub const ENUM_MAX_PAYLOAD: u8 = 3;
+    pub const ENUM_MAX_PAYLOAD: u8 = 4;
     #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
     )]
     #[allow(non_camel_case_types)]
-    pub const ENUM_VALUES_PAYLOAD: [Payload; 4] = [
+    pub const ENUM_VALUES_PAYLOAD: [Payload; 5] = [
         Payload::NONE,
         Payload::Request,
         Payload::Response,
         Payload::Aliased,
+        Payload::Other,
     ];
 
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -46,11 +47,17 @@ pub mod my_example {
         pub const Request: Self = Self(1);
         pub const Response: Self = Self(2);
         pub const Aliased: Self = Self(3);
+        pub const Other: Self = Self(4);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 3;
-        pub const ENUM_VALUES: &'static [Self] =
-            &[Self::NONE, Self::Request, Self::Response, Self::Aliased];
+        pub const ENUM_MAX: u8 = 4;
+        pub const ENUM_VALUES: &'static [Self] = &[
+            Self::NONE,
+            Self::Request,
+            Self::Response,
+            Self::Aliased,
+            Self::Other,
+        ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
             match self {
@@ -58,6 +65,7 @@ pub mod my_example {
                 Self::Request => Some("Request"),
                 Self::Response => Some("Response"),
                 Self::Aliased => Some("Aliased"),
+                Self::Other => Some("Other"),
                 _ => None,
             }
         }
@@ -81,6 +89,13 @@ pub mod my_example {
             o: flatbuffers::WIPOffset<Request>,
         ) -> flatbuffers::UnionWIPOffset<PayloadUnionValue> {
             flatbuffers::UnionWIPOffset::new(Self::Aliased, flatbuffers::WIPOffset::new(o.value()))
+        }
+
+        #[inline]
+        pub fn tag_as_other(
+            o: flatbuffers::WIPOffset<&str>,
+        ) -> flatbuffers::UnionWIPOffset<PayloadUnionValue> {
+            flatbuffers::UnionWIPOffset::new(Self::Other, flatbuffers::WIPOffset::new(o.value()))
         }
     }
     impl std::fmt::Debug for Payload {
@@ -177,6 +192,11 @@ pub mod my_example {
         pub fn push_as_aliased(&mut self, o: flatbuffers::WIPOffset<Request>) {
             self.fbb.push_union_vector_item(Payload::tag_as_aliased(o));
         }
+
+        #[inline]
+        pub fn push_as_other(&mut self, o: flatbuffers::WIPOffset<&str>) {
+            self.fbb.push_union_vector_item(Payload::tag_as_other(o));
+        }
     }
 
     pub struct PayloadUnionValue {}
@@ -207,6 +227,10 @@ pub mod my_example {
                         "Payload::Aliased",
                         pos,
                     ),
+                Payload::Other => v.verify_union_variant::<flatbuffers::ForwardsUOffset<&str>>(
+                    "Payload::Other",
+                    pos,
+                ),
                 _ => Ok(()),
             }
         }
@@ -219,6 +243,7 @@ pub mod my_example {
         Request(Box<RequestT>),
         Response(Box<ResponseT>),
         Aliased(Box<RequestT>),
+        Other(Box<std::string::String>),
     }
     impl Default for PayloadT {
         fn default() -> Self {
@@ -232,6 +257,7 @@ pub mod my_example {
                 Self::Request(_) => Payload::Request,
                 Self::Response(_) => Payload::Response,
                 Self::Aliased(_) => Payload::Aliased,
+                Self::Other(_) => Payload::Other,
             }
         }
         pub fn pack(
@@ -243,6 +269,9 @@ pub mod my_example {
                 Self::Request(v) => Some(Payload::tag_as_request(v.pack(fbb)).value_offset()),
                 Self::Response(v) => Some(Payload::tag_as_response(v.pack(fbb)).value_offset()),
                 Self::Aliased(v) => Some(Payload::tag_as_aliased(v.pack(fbb)).value_offset()),
+                Self::Other(v) => {
+                    Some(Payload::tag_as_other(fbb.create_string(v.as_str())).value_offset())
+                }
             }
         }
         /// If the union variant matches, return the owned RequestT, setting the union to NONE.
@@ -327,6 +356,35 @@ pub mod my_example {
         /// If the union variant matches, return a mutable reference to the RequestT.
         pub fn as_aliased_mut(&mut self) -> Option<&mut RequestT> {
             if let Self::Aliased(v) = self {
+                Some(v.as_mut())
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return the owned std::string::String, setting the union to NONE.
+        pub fn take_other(&mut self) -> Option<Box<std::string::String>> {
+            if let Self::Other(_) = self {
+                let v = std::mem::replace(self, Self::NONE);
+                if let Self::Other(w) = v {
+                    Some(w)
+                } else {
+                    unreachable!()
+                }
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return a reference to the std::string::String.
+        pub fn as_other(&self) -> Option<&std::string::String> {
+            if let Self::Other(v) = self {
+                Some(v.as_ref())
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return a mutable reference to the std::string::String.
+        pub fn as_other_mut(&mut self) -> Option<&mut std::string::String> {
+            if let Self::Other(v) = self {
                 Some(v.as_mut())
             } else {
                 None
@@ -748,13 +806,16 @@ pub mod my_example {
                             match key {
                                 &Payload::NONE => PayloadT::NONE,
                                 &Payload::Request => PayloadT::Request(Box::new(
-                                    Request::init_from_table(table).unpack(),
+                                    <Request>::init_from_table(table).unpack(),
                                 )),
                                 &Payload::Response => PayloadT::Response(Box::new(
-                                    Response::init_from_table(table).unpack(),
+                                    <Response>::init_from_table(table).unpack(),
                                 )),
                                 &Payload::Aliased => PayloadT::Aliased(Box::new(
-                                    Request::init_from_table(table).unpack(),
+                                    <Request>::init_from_table(table).unpack(),
+                                )),
+                                &Payload::Other => PayloadT::Other(Box::new(
+                                    <&str>::follow(table.buf, table.loc).to_string(),
                                 )),
                                 _ => PayloadT::NONE,
                             }
@@ -778,6 +839,11 @@ pub mod my_example {
                     self.union_single_as_aliased()
                         .expect("Invalid union table, expected `Payload::Aliased`.")
                         .unpack(),
+                )),
+                Payload::Other => PayloadT::Other(Box::new(
+                    self.union_single_as_other()
+                        .expect("Invalid union table, expected `Payload::Other`.")
+                        .to_string(),
                 )),
                 _ => PayloadT::NONE,
             };
@@ -868,7 +934,7 @@ pub mod my_example {
         #[allow(non_snake_case)]
         pub fn union_single_as_request(&self) -> Option<Request<'a>> {
             if self.union_single_type() == Payload::Request {
-                self.union_single().map(Request::init_from_table)
+                self.union_single().map(<Request>::init_from_table)
             } else {
                 None
             }
@@ -878,7 +944,7 @@ pub mod my_example {
         #[allow(non_snake_case)]
         pub fn union_single_as_response(&self) -> Option<Response<'a>> {
             if self.union_single_type() == Payload::Response {
-                self.union_single().map(Response::init_from_table)
+                self.union_single().map(<Response>::init_from_table)
             } else {
                 None
             }
@@ -888,7 +954,17 @@ pub mod my_example {
         #[allow(non_snake_case)]
         pub fn union_single_as_aliased(&self) -> Option<Request<'a>> {
             if self.union_single_type() == Payload::Aliased {
-                self.union_single().map(Request::init_from_table)
+                self.union_single().map(<Request>::init_from_table)
+            } else {
+                None
+            }
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn union_single_as_other(&self) -> Option<&str> {
+            if self.union_single_type() == Payload::Other {
+                self.union_single().map(|t| <&str>::follow(t.buf, t.loc))
             } else {
                 None
             }
@@ -1092,6 +1168,16 @@ pub mod my_example {
                 }
                 Payload::Aliased => {
                     if let Some(x) = self.union_single_as_aliased() {
+                        ds.field("union_single", &x)
+                    } else {
+                        ds.field(
+                            "union_single",
+                            &"InvalidFlatbuffer: Union discriminant does not match value.",
+                        )
+                    }
+                }
+                Payload::Other => {
+                    if let Some(x) = self.union_single_as_other() {
                         ds.field("union_single", &x)
                     } else {
                         ds.field(

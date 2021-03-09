@@ -6,7 +6,7 @@ extern crate flatbuffers;
 mod my_table;
 
 use crate::my_table::my_example::root_as_my_table;
-use flatbuffers::BuildVector;
+use flatbuffers::{BuildVector, Follow};
 pub use my_table::my_example::{
     MyTable, MyTableArgs, Payload, Request, RequestArgs, Response, ResponseArgs,
 };
@@ -45,8 +45,11 @@ fn write() {
         },
     );
 
+    let greeting = fbb.create_string("Hello World!");
+
     let messages = {
-        let mut payload_builder = <Payload as BuildVector>::VectorBuilder::new(&mut fbb, 5);
+        let mut payload_builder = <Payload as BuildVector>::VectorBuilder::new(&mut fbb, 6);
+        payload_builder.push_as_other(greeting);
         payload_builder.push_as_aliased(request3);
         payload_builder.push_as_response(response2);
         payload_builder.push_as_request(request2);
@@ -108,6 +111,9 @@ fn read() {
             Payload::Aliased => {
                 let req = Request::init_from_table(table);
                 println!("Aliased: Request id: {}", req.request_id())
+            }
+            Payload::Other => {
+                println!("Other: {}", <&str>::follow(table.buf, table.loc));
             }
             _ => println!("Invalid"),
         }

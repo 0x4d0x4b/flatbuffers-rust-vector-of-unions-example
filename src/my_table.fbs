@@ -13,7 +13,7 @@ struct MyStruct {
   my_id: uint32;
 }
 
-union Payload { Request, Response, Aliased: Request }
+union Payload { Request, Response, Aliased: Request, Other: string }
 
 table MyTable {
   union_vector: [Payload];
