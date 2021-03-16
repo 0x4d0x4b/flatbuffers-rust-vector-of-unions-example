@@ -962,12 +962,72 @@ pub mod my_example {
 
         #[inline]
         #[allow(non_snake_case)]
-        pub fn union_single_as_other(&self) -> Option<&str> {
+        pub fn union_single_as_other(&self) -> Option<&'a str> {
             if self.union_single_type() == Payload::Other {
                 self.union_single().map(|t| <&str>::follow(t.buf, t.loc))
             } else {
                 None
             }
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn union_vector_item_as_request(&self, idx: usize) -> Option<Request<'a>> {
+            if let Some(tags) = self.union_vector_type() {
+                if let Some(tables) = self.union_vector() {
+                    if let Some((tag, table)) = tags.iter().zip(tables.iter()).nth(idx) {
+                        if tag == Payload::Request {
+                            return Some(<Request>::init_from_table(table));
+                        }
+                    }
+                }
+            }
+            None
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn union_vector_item_as_response(&self, idx: usize) -> Option<Response<'a>> {
+            if let Some(tags) = self.union_vector_type() {
+                if let Some(tables) = self.union_vector() {
+                    if let Some((tag, table)) = tags.iter().zip(tables.iter()).nth(idx) {
+                        if tag == Payload::Response {
+                            return Some(<Response>::init_from_table(table));
+                        }
+                    }
+                }
+            }
+            None
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn union_vector_item_as_aliased(&self, idx: usize) -> Option<Request<'a>> {
+            if let Some(tags) = self.union_vector_type() {
+                if let Some(tables) = self.union_vector() {
+                    if let Some((tag, table)) = tags.iter().zip(tables.iter()).nth(idx) {
+                        if tag == Payload::Aliased {
+                            return Some(<Request>::init_from_table(table));
+                        }
+                    }
+                }
+            }
+            None
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn union_vector_item_as_other(&self, idx: usize) -> Option<&'a str> {
+            if let Some(tags) = self.union_vector_type() {
+                if let Some(tables) = self.union_vector() {
+                    if let Some((tag, table)) = tags.iter().zip(tables.iter()).nth(idx) {
+                        if tag == Payload::Other {
+                            return Some(<&str>::follow(table.buf, table.loc));
+                        }
+                    }
+                }
+            }
+            None
         }
     }
 

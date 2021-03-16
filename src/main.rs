@@ -119,7 +119,23 @@ fn read() {
         }
     });
     let req3 = Request::init_from_table(simple.union_single().unwrap());
-    println!("Request id: {}", req3.request_id())
+    println!("Request id: {}", req3.request_id());
+    println!(
+        "Item idx: 5 as Other: {}",
+        simple.union_vector_item_as_other(5).unwrap()
+    );
+    match simple.union_vector_item_as_request(10) {
+        None => println!("Out of bounds idx: 10 gives None as expected"),
+        Some(_) => assert!(false),
+    }
+    match simple.union_vector_item_as_request(4) {
+        None => println!("Aliased accessed as Request gives None as expected"),
+        Some(_) => assert!(false),
+    }
+    match simple.union_vector_item_as_aliased(4) {
+        Some(req) => println!("Aliased: Request id: {}", req.request_id()),
+        None => assert!(false),
+    }
 }
 
 fn main() {
