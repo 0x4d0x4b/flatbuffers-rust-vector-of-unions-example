@@ -24,18 +24,19 @@ pub mod my_example {
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
     )]
-    pub const ENUM_MAX_PAYLOAD: u8 = 4;
+    pub const ENUM_MAX_PAYLOAD: u8 = 5;
     #[deprecated(
         since = "2.0.0",
         note = "Use associated constants instead. This will no longer be generated in 2021."
     )]
     #[allow(non_camel_case_types)]
-    pub const ENUM_VALUES_PAYLOAD: [Payload; 5] = [
+    pub const ENUM_VALUES_PAYLOAD: [Payload; 6] = [
         Payload::NONE,
         Payload::Request,
         Payload::Response,
         Payload::Aliased,
         Payload::Other,
+        Payload::Surprise,
     ];
 
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -48,15 +49,17 @@ pub mod my_example {
         pub const Response: Self = Self(2);
         pub const Aliased: Self = Self(3);
         pub const Other: Self = Self(4);
+        pub const Surprise: Self = Self(5);
 
         pub const ENUM_MIN: u8 = 0;
-        pub const ENUM_MAX: u8 = 4;
+        pub const ENUM_MAX: u8 = 5;
         pub const ENUM_VALUES: &'static [Self] = &[
             Self::NONE,
             Self::Request,
             Self::Response,
             Self::Aliased,
             Self::Other,
+            Self::Surprise,
         ];
         /// Returns the variant's name or "" if unknown.
         pub fn variant_name(self) -> Option<&'static str> {
@@ -66,6 +69,7 @@ pub mod my_example {
                 Self::Response => Some("Response"),
                 Self::Aliased => Some("Aliased"),
                 Self::Other => Some("Other"),
+                Self::Surprise => Some("Surprise"),
                 _ => None,
             }
         }
@@ -96,6 +100,13 @@ pub mod my_example {
             o: flatbuffers::WIPOffset<&str>,
         ) -> flatbuffers::UnionWIPOffset<PayloadUnionValue> {
             flatbuffers::UnionWIPOffset::new(Self::Other, flatbuffers::WIPOffset::new(o.value()))
+        }
+
+        #[inline]
+        pub fn tag_as_surprise(
+            o: flatbuffers::WIPOffset<MyStruct>,
+        ) -> flatbuffers::UnionWIPOffset<PayloadUnionValue> {
+            flatbuffers::UnionWIPOffset::new(Self::Surprise, flatbuffers::WIPOffset::new(o.value()))
         }
     }
     impl std::fmt::Debug for Payload {
@@ -197,6 +208,11 @@ pub mod my_example {
         pub fn push_as_other(&mut self, o: flatbuffers::WIPOffset<&str>) {
             self.fbb.push_union_vector_item(Payload::tag_as_other(o));
         }
+
+        #[inline]
+        pub fn push_as_surprise(&mut self, o: flatbuffers::WIPOffset<MyStruct>) {
+            self.fbb.push_union_vector_item(Payload::tag_as_surprise(o));
+        }
     }
 
     pub struct PayloadUnionValue {}
@@ -231,6 +247,11 @@ pub mod my_example {
                     "Payload::Other",
                     pos,
                 ),
+                Payload::Surprise => v
+                    .verify_union_variant::<flatbuffers::ForwardsUOffset<MyStruct>>(
+                        "Payload::Surprise",
+                        pos,
+                    ),
                 _ => Ok(()),
             }
         }
@@ -244,6 +265,7 @@ pub mod my_example {
         Response(Box<ResponseT>),
         Aliased(Box<RequestT>),
         Other(Box<std::string::String>),
+        Surprise(Box<MyStructT>),
     }
     impl Default for PayloadT {
         fn default() -> Self {
@@ -258,6 +280,7 @@ pub mod my_example {
                 Self::Response(_) => Payload::Response,
                 Self::Aliased(_) => Payload::Aliased,
                 Self::Other(_) => Payload::Other,
+                Self::Surprise(_) => Payload::Surprise,
             }
         }
         pub fn pack(
@@ -271,6 +294,9 @@ pub mod my_example {
                 Self::Aliased(v) => Some(Payload::tag_as_aliased(v.pack(fbb)).value_offset()),
                 Self::Other(v) => {
                     Some(Payload::tag_as_other(fbb.create_string(v.as_str())).value_offset())
+                }
+                Self::Surprise(v) => {
+                    Some(Payload::tag_as_surprise(fbb.push(v.pack())).value_offset())
                 }
             }
         }
@@ -385,6 +411,35 @@ pub mod my_example {
         /// If the union variant matches, return a mutable reference to the std::string::String.
         pub fn as_other_mut(&mut self) -> Option<&mut std::string::String> {
             if let Self::Other(v) = self {
+                Some(v.as_mut())
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return the owned MyStructT, setting the union to NONE.
+        pub fn take_surprise(&mut self) -> Option<Box<MyStructT>> {
+            if let Self::Surprise(_) = self {
+                let v = std::mem::replace(self, Self::NONE);
+                if let Self::Surprise(w) = v {
+                    Some(w)
+                } else {
+                    unreachable!()
+                }
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return a reference to the MyStructT.
+        pub fn as_surprise(&self) -> Option<&MyStructT> {
+            if let Self::Surprise(v) = self {
+                Some(v.as_ref())
+            } else {
+                None
+            }
+        }
+        /// If the union variant matches, return a mutable reference to the MyStructT.
+        pub fn as_surprise_mut(&mut self) -> Option<&mut MyStructT> {
+            if let Self::Surprise(v) = self {
                 Some(v.as_mut())
             } else {
                 None
@@ -817,6 +872,9 @@ pub mod my_example {
                                 &Payload::Other => PayloadT::Other(Box::new(
                                     <&str>::follow(table.buf, table.loc).to_string(),
                                 )),
+                                &Payload::Surprise => PayloadT::Surprise(Box::new(
+                                    <MyStruct>::follow(table.buf, table.loc).unpack(),
+                                )),
                                 _ => PayloadT::NONE,
                             }
                         })
@@ -844,6 +902,11 @@ pub mod my_example {
                     self.union_single_as_other()
                         .expect("Invalid union table, expected `Payload::Other`.")
                         .to_string(),
+                )),
+                Payload::Surprise => PayloadT::Surprise(Box::new(
+                    self.union_single_as_surprise()
+                        .expect("Invalid union table, expected `Payload::Surprise`.")
+                        .unpack(),
                 )),
                 _ => PayloadT::NONE,
             };
@@ -972,6 +1035,17 @@ pub mod my_example {
 
         #[inline]
         #[allow(non_snake_case)]
+        pub fn union_single_as_surprise(&self) -> Option<&'a MyStruct> {
+            if self.union_single_type() == Payload::Surprise {
+                self.union_single()
+                    .map(|t| <MyStruct>::follow(t.buf, t.loc))
+            } else {
+                None
+            }
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
         pub fn union_vector_item_as_request(&self, idx: usize) -> Option<Request<'a>> {
             if let Some(tags) = self.union_vector_type() {
                 if let Some(tables) = self.union_vector() {
@@ -1023,6 +1097,21 @@ pub mod my_example {
                     if let Some((tag, table)) = tags.iter().zip(tables.iter()).nth(idx) {
                         if tag == Payload::Other {
                             return Some(<&str>::follow(table.buf, table.loc));
+                        }
+                    }
+                }
+            }
+            None
+        }
+
+        #[inline]
+        #[allow(non_snake_case)]
+        pub fn union_vector_item_as_surprise(&self, idx: usize) -> Option<&'a MyStruct> {
+            if let Some(tags) = self.union_vector_type() {
+                if let Some(tables) = self.union_vector() {
+                    if let Some((tag, table)) = tags.iter().zip(tables.iter()).nth(idx) {
+                        if tag == Payload::Surprise {
+                            return Some(<MyStruct>::follow(table.buf, table.loc));
                         }
                     }
                 }
@@ -1238,6 +1327,16 @@ pub mod my_example {
                 }
                 Payload::Other => {
                     if let Some(x) = self.union_single_as_other() {
+                        ds.field("union_single", &x)
+                    } else {
+                        ds.field(
+                            "union_single",
+                            &"InvalidFlatbuffer: Union discriminant does not match value.",
+                        )
+                    }
+                }
+                Payload::Surprise => {
+                    if let Some(x) = self.union_single_as_surprise() {
                         ds.field("union_single", &x)
                     } else {
                         ds.field(

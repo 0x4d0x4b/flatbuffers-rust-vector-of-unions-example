@@ -5,10 +5,10 @@ extern crate flatbuffers;
 #[path = "./my_table_generated.rs"]
 mod my_table;
 
-use crate::my_table::my_example::root_as_my_table;
 use flatbuffers::{BuildVector, Follow};
 pub use my_table::my_example::{
-    MyTable, MyTableArgs, Payload, Request, RequestArgs, Response, ResponseArgs,
+    root_as_my_table, MyStruct, MyTable, MyTableArgs, Payload, Request, RequestArgs, Response,
+    ResponseArgs,
 };
 use std::fs;
 
@@ -46,9 +46,11 @@ fn write() {
     );
 
     let greeting = fbb.create_string("Hello World!");
+    let my_struct = fbb.push(MyStruct::new(11));
 
     let messages = {
-        let mut payload_builder = <Payload as BuildVector>::VectorBuilder::new(&mut fbb, 6);
+        let mut payload_builder = <Payload as BuildVector>::VectorBuilder::new(&mut fbb, 7);
+        payload_builder.push_as_surprise(my_struct);
         payload_builder.push_as_other(greeting);
         payload_builder.push_as_aliased(request3);
         payload_builder.push_as_response(response2);
@@ -115,6 +117,10 @@ fn read() {
             Payload::Other => {
                 println!("Other: {}", <&str>::follow(table.buf, table.loc));
             }
+            Payload::Surprise => {
+                let my_struct = MyStruct::follow(table.buf, table.loc);
+                println!("Surprise: MyStruct id: {}", my_struct.my_id());
+            }
             _ => println!("Invalid"),
         }
     });
@@ -134,6 +140,10 @@ fn read() {
     }
     match simple.union_vector_item_as_aliased(4) {
         Some(req) => println!("Aliased: Request id: {}", req.request_id()),
+        None => assert!(false),
+    }
+    match simple.union_vector_item_as_surprise(6) {
+        Some(my_struct) => println!("Surprise: MyStruct id: {}", my_struct.my_id()),
         None => assert!(false),
     }
 }
